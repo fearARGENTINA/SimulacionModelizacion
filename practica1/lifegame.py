@@ -44,7 +44,7 @@ class Scenario:
             
         self.playersList = [[ Player((x, y), True) for x in range(w)] for y in range(h)]
         for pos in randomAlivePositions:
-            self.playersList[pos[0]][pos[1]] = Player(pos)
+            self.playersList[pos[1]][pos[0]] = Player(pos)
         
     def getPlayers(self):
         return self.playersList
@@ -123,7 +123,8 @@ class Screen:
         self.stdscr.refresh()
         
 def waitToStart(screen):
-    screen.write("Presione la tecla b para comenzar")
+    screen.drawGrid()
+    screen.refresh()
     
     while True:
         try:
@@ -150,10 +151,11 @@ def main():
         filePath = sys.argv[1]
     
     firstConf = readLifeGameConf(filePath)
-    print(firstConf)
     
     screen = Screen(W, H)
     scenario = Scenario(W, H, MAX_PLAYERS, firstConf)
+    players = scenario.getPlayers()
+    screen.mapPlayersToGrid(players)
     
     waitToStart(screen)
     
@@ -162,10 +164,9 @@ def main():
     while True:
         curTime = time()
         
-        if curTime >= nextTime: 
+        if curTime >= nextTime:
             players = scenario.getPlayers()
-            screen.mapPlayersToGrid(players)
-            
+            screen.mapPlayersToGrid(players)        
             screen.drawGrid()
             screen.refresh()
             scenario.nextGeneration()
