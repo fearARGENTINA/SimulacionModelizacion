@@ -145,9 +145,10 @@ def readLifeGameConf(filePath):
     return randomAlivePositions
 
 def main():
-    filePath = 'lifegame.conf'
+    if len(sys.argv) < 2:
+        print(f"Uso {sys.argv[0]} archivoConfiguracion")
+        return
     
-    if len(sys.argv) >= 2:
         filePath = sys.argv[1]
     
     firstConf = readLifeGameConf(filePath)
