@@ -9,7 +9,6 @@ MIN_SURVIVAL = 2
 MAX_SURVIVAL = 3
 SURVIVAL_RANGE = list(range(MIN_SURVIVAL, MAX_SURVIVAL+1))
 EVERY_SECONDS = 0.3
-MAX_PLAYERS = 50
 BORDER_CHAR = '@'
 ALIVE_CHAR = 'X'
 DEAD_CHAR = ' '
@@ -34,16 +33,12 @@ class Player:
 class Scenario:
     playersList = []
     
-    def __init__(self, w, h, maxPlayers = 5, randomAlivePositions = []):
+    def __init__(self, w, h, alivePositions):
         self.w = w
         self.h = h
-        self.maxPlayers = maxPlayers
         
-        if not len(randomAlivePositions):
-            randomAlivePositions = [(random.randrange(0, w), random.randrange(0, h)) for i in range(maxPlayers)]
-            
         self.playersList = [[ Player((x, y), True) for x in range(w)] for y in range(h)]
-        for pos in randomAlivePositions:
+        for pos in alivePositions:
             self.playersList[pos[1]][pos[0]] = Player(pos)
         
     def getPlayers(self):
@@ -145,16 +140,18 @@ def readLifeGameConf(filePath):
     return randomAlivePositions
 
 def main():
+    filePath = ""
+    
     if len(sys.argv) < 2:
         print(f"Uso {sys.argv[0]} archivoConfiguracion")
         return
     
-        filePath = sys.argv[1]
+    filePath = sys.argv[1]
     
     firstConf = readLifeGameConf(filePath)
     
     screen = Screen(W, H)
-    scenario = Scenario(W, H, MAX_PLAYERS, firstConf)
+    scenario = Scenario(W, H, firstConf)
     players = scenario.getPlayers()
     screen.mapPlayersToGrid(players)
     
