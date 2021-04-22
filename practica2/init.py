@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
-import re
 from abc import ABC, abstractmethod
+import re
+import curses
+from time import sleep
 
 ERROR_INVALID_LINE = "Linea de codigo invalida (Instruccion inexistente o sintaxis incorrecta)"
 ERROR_INVALID_PARAMS = "Linea de codigo invalida (Problema en parametros! ¿Cantidad de parametros? ¿Registros invalidos? ¿Parametros no esperados? )"
@@ -16,43 +18,62 @@ class Instruccion(ABC):
     
     def getParams(self):
         return self.params
+
+    def procesar(self, procesador):
+        procesador.setRegister("ip", procesador.getRegister("ip")+1)
+    
+    def mostrar(self, prefix):
+        return f"{prefix} {' '.join(map(lambda x: str(x), self.getParams()))}"
         
     @abstractmethod
     def validar(self):
         pass
     
-    @abstractmethod
-    def procesar(self, procesador):
-        pass
-
 class Mov(Instruccion):
     def validar(self, line):
         if re.search("^mov\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        procesador.setRegister(params[0], params[1])
+        if self.params[1].isnumeric():
+            auxSecParam = self.params[1]
+        else:
+            auxSecParam = f"self.{self.params[1]}"
+        procesador.setRegister(self.params[0], auxSecParam)
         
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("mov")
+    
 class Add(Instruccion):
     def validar(self, line):
         if re.search("^add\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        if params[1].isnumeric():
-            auxSecParam = params[1]
+        if self.params[1].isnumeric():
+            auxSecParam = self.params[1]
         else:
-            auxSecParam = f"self.{params[1]}"
+            auxSecParam = f"self.{self.params[1]}"
         
-        procesador.setRegister(params[0], f"self.{params[0]}+{auxSecParam}")
-            
+        procesador.setRegister(self.params[0], f"self.{self.params[0]}+{auxSecParam}")
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("add")
+        
 class Jmp(Instruccion):
     def validar(self, line):
         if re.search("^jmp\s+\w+$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        procesador.setRegister("ip", params[0])
+        procesador.setRegister("ip", self.params[0])
+    
+    def mostrar(self):
+        return super().mostrar("jmp")
         
 class Jnz(Instruccion):
     def validar(self, line):
@@ -61,7 +82,12 @@ class Jnz(Instruccion):
         
     def procesar(self, procesador):
         if procesador.getRegister("flag"):
-            procesador.setRegister("ip", params[0])
+            procesador.setRegister("ip", self.params[0])
+        else:
+            super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("jnz")
         
 class Cmp(Instruccion):
     def validar(self, line):
@@ -69,24 +95,34 @@ class Cmp(Instruccion):
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        val1 = params[0]
-        val2 = params[1]
+        val1 = self.params[0]
+        val2 = self.params[1]
         
-        if not params[0].isnumeric():
-            val1 = procesador.getRegister(params[0])
+        if not self.params[0].isnumeric():
+            val1 = procesador.getRegister(self.params[0])
         
-        if not params[1].isnumeric():
-            val2 = procesador.getRegister(params[1])
+        if not self.params[1].isnumeric():
+            val2 = procesador.getRegister(self.params[1])
         
         procesador.setRegister("flag", f"int({val1}<={val2})")
-
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("cmp")
+        
 class Inc(Instruccion):
     def validar(self, line):
         if re.search("^inc\s+(ax|bx|cx|dx)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        procesador.setRegister(params[0], "self.{params[0]}+1")
+        procesador.setRegister(self.params[0], f"self.{self.params[0]}+1")
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("inc")
         
 class Dec(Instruccion):
     def validar(self, line):
@@ -94,8 +130,13 @@ class Dec(Instruccion):
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        procesador.setRegister(params[0], "self.{params[0]}-1")
-
+        procesador.setRegister(self.params[0], f"self.{self.params[0]}-1")
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("dec")
+    
 VALID_INSTRUCTIONS = { "mov" : Mov, "add" : Add , "jmp" : Jmp, "jnz" : Jnz, "cmp" : Cmp, "inc" : Inc, "dec" : Dec}
 
 class Ensamblador:
@@ -196,6 +237,9 @@ class Ejecutable:
     
     def setEntryPoint(self):
         self.entryPoint = self.lookupTable.get("entry_point", 0)
+    
+    def getEntryPoint(self):
+        return self.entryPoint
         
 class Procesador:
     def __init__(self):
@@ -212,18 +256,99 @@ class Procesador:
     def getRegister(self, register : str):
         return eval(f"self.{register}")
         
+    def mostrar(self):
+        return [
+            ('ax', str(self.ax)),
+            ('bx', str(self.bx)),
+            ('cx', str(self.cx)),
+            ('dx', str(self.dx)),
+            ('ip', str(self.ip)),
+            ('flag', str(self.flag))
+        ]
+
+class Visualizador:
+    def __init__(self, anchoCodigo, anchoProcesador, altoPantalla, filaInstruccion):
+        self.stdscr = curses.initscr()
+        self.stdscr.nodelay(True)
+        self.anchoCodigo = anchoCodigo
+        self.anchoProcesador = anchoProcesador
+        self.alto = altoPantalla
+        self.filaInstruccion = filaInstruccion
+        
+    def mostrar(self, ejecutable, procesador):
+        allInstrucciones = ejecutable.getListaInstrucciones()
+        self.instructionPointer = procesador.getRegister("ip")
+        
+        minShow = self.instructionPointer - self.filaInstruccion
+        maxShow = self.instructionPointer + (self.alto - self.filaInstruccion)
+        
+        instrucciones = allInstrucciones[max(0, minShow):maxShow]
+        
+        firstPadding = max(self.filaInstruccion - self.instructionPointer, 0)
+        dataShow = [""]*firstPadding + list(map(lambda instruccion: instruccion.mostrar(), instrucciones))
+        
+        if len(dataShow) > self.alto:
+            dataShow = dataShow[:self.alto]
+        elif len(dataShow) < self.alto:
+            dataShow += [""]*(self.alto-len(dataShow))
+        
+        self.stdscr.clear()
+        
+        self.dibujar(dataShow, procesador.mostrar())
+        
+        self.stdscr.refresh()
+        
+                
+    def dibujar(self, lineasCodigo, dataProcesador):
+        for fila in range(0, self.alto):
+            if fila == self.filaInstruccion:
+                self.stdscr.addstr(fila, 0, ">")
+            else:
+                self.stdscr.addstr(fila, 0, " ")
+            
+            for col in range(0, min(self.anchoCodigo, len(lineasCodigo[fila]))):
+                self.stdscr.addstr(fila, 1+col, lineasCodigo[fila][col])
+                
+            self.stdscr.addstr(fila, self.anchoCodigo, "|")
+            
+            if fila < len(dataProcesador):
+                line = " : ".join(dataProcesador[fila])
+                
+                for col in range(0, min(self.anchoProcesador, len(line))):
+                    self.stdscr.addstr(fila, self.anchoCodigo+1+col, line[col])
+        
+    def pressedQuit(self):
+        return self.stdscr.getch() == ord('q')
+        
+class Sistema:
+    def __init__(self, ejecutable : Ejecutable, procesador : Procesador):
+        self.ejecutable = ejecutable
+        self.procesador = procesador
+        self.visualizador = Visualizador(15, 9, 9, 4)
+        
+    def procesar(self):
+        self.procesador.setRegister("ip", self.ejecutable.getEntryPoint())
+        
+        listaInstrucciones = self.ejecutable.getListaInstrucciones()
+        
+        self.visualizador.mostrar(self.ejecutable, self.procesador)
+        sleep(2)
+        while self.procesador.getRegister("ip") < len(listaInstrucciones):
+            self.visualizador.mostrar(self.ejecutable, self.procesador)
+            instructionPointer = self.procesador.getRegister("ip")
+            listaInstrucciones[instructionPointer].procesar(self.procesador)
+            sleep(2)
+            
+            if self.visualizador.pressedQuit():
+                break
+        
 def main():
     ensamblador = Ensamblador()
     ensamblador.procesar("main.asm")
-    print("------------------------ Errores ------------------------\n\n")
-    for e in ensamblador.getErrores():
-        print(e)
-    print("------------------------ Lista Instr ------------------------\n\n")
-    for i in ensamblador.getEjecutable().getListaInstrucciones():
-        print(i)
-    print("------------------------ Lookup Table ------------------------\n\n")
-    print(ensamblador.getEjecutable().lookupTable)
-    print("------------------------ allJumps ------------------------\n\n")
-    print(ensamblador.allJumps)
+    procesador = Procesador()
+    
+    if not len(ensamblador.getErrores()):
+        sistema = Sistema(ensamblador.getEjecutable(), procesador)
+        sistema.procesar()
     
 main()

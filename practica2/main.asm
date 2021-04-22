@@ -1,15 +1,18 @@
 Etiqueta1:
-	mov ax 2	
+	mov ax 20000000000000000000000000
 	mov bx 3
 	mov ax bx
 	dec bx
-	jmp Etiqueta2
+	jmp Lol
 
 entry_point:
-	add bx ax
-	jnz Etiqueta4
+	mov bx 3
+	add ax bx
+	mov ax bx
+	dec bx
+	jmp Etiqueta1
+
+Lol:
+	cmp bx ax
+	jnz entry_point
 	# pepito comentario
-Etiqueta2:
-	cmp 1 3
-	mov ax 1
-	jmp Etiqueta3
