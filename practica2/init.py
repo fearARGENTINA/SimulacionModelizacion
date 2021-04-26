@@ -136,8 +136,76 @@ class Dec(Instruccion):
     
     def mostrar(self):
         return super().mostrar("dec")
+        
+class Push(Instruccion):
+    def validar(self, line):
+        if re.search("^push\s+(ax|bx|cx|dx|\d+)$", line) is None:
+            raise Exception(ERROR_INVALID_PARAMS)
+        
+    def procesar(self, procesador):
+        procesador.pushStack(self.params[0])
+        
+        super().procesar(procesador)
     
-VALID_INSTRUCTIONS = { "mov" : Mov, "add" : Add , "jmp" : Jmp, "jnz" : Jnz, "cmp" : Cmp, "inc" : Inc, "dec" : Dec}
+    def mostrar(self):
+        return super().mostrar("push")
+        
+class Pop(Instruccion):
+    def validar(self, line):
+        if re.search("^pop\s+(ax|bx|cx|dx)$", line) is None:
+            raise Exception(ERROR_INVALID_PARAMS)
+        
+    def procesar(self, procesador):
+        procesador.popStack(self.params[0])
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("pop")
+
+class Ret(Instruccion):
+    def validar(self, line):
+        if re.search("^ret$", line) is None:
+            raise Exception(ERROR_INVALID_PARAMS)
+        
+    def procesar(self, procesador):
+        procesador.setRegister("ip", procesador.stack.pop())
+        procesador.setRegister("stack", "[]")
+        
+        super().procesar(procesador)
+    
+    def mostrar(self):
+        return super().mostrar("ret")
+
+class Call(Instruccion):
+    def __init__(self, retPointer : str):
+        self.retPointer = retPointer
+        super().__init__()
+        
+    def validar(self, line):
+        if re.search("^call\s+\w+$", line) is None:
+            raise Exception(ERROR_INVALID_PARAMS)
+    
+    def procesar(self, procesador):
+        procesador.pushStack(self.retPointer)
+        procesador.setRegister("ip", self.params[0])
+    
+    def mostrar(self):
+        return super().mostrar("call")
+        
+VALID_INSTRUCTIONS = { 
+    "mov" : Mov, 
+    "add" : Add , 
+    "jmp" : Jmp, 
+    "jnz" : Jnz, 
+    "cmp" : Cmp, 
+    "inc" : Inc, 
+    "dec" : Dec, 
+    "call" : Call, 
+    "pop" : Pop, 
+    "push" : Push, 
+    "ret" : Ret 
+}
 
 class Ensamblador:
     def __init__(self):
@@ -155,19 +223,21 @@ class Ensamblador:
                 self.ejecutable.addLookupTable(self.subEtiqueta(line), listaInstLineNum)
             elif self.esInstruccion(line):
                 preInstruccion = self.getInstruccion(line)
-                instruccion = VALID_INSTRUCTIONS[preInstruccion]()
+                if preInstruccion == "call":
+                    instruccion = VALID_INSTRUCTIONS[preInstruccion](str(listaInstLineNum))
+                else:
+                    instruccion = VALID_INSTRUCTIONS[preInstruccion]()
                 
                 try:
-                    instruccion.validar(line)
                     params = line.split()[1:]
                     
-                    if isinstance(instruccion, Jnz) or isinstance(instruccion, Jmp):
-                        instruccion.setParams(params)
+                    instruccion.setParams(params)
+                    
+                    if isinstance(instruccion, Jnz) or isinstance(instruccion, Jmp) or isinstance(instruccion, Call):
                         self.allJumps.append((fuenteLineNum, *instruccion.getParams(), listaInstLineNum))
-                    else:
-                        instruccion.setParams(params)
                         
                     self.ejecutable.addListaInstrucciones(instruccion)
+                    instruccion.validar(line)
                 except Exception as e:
                     self.errors.append((fuenteLineNum, str(e)))
                 
@@ -194,6 +264,7 @@ class Ensamblador:
     
     def validarAllJumps(self):
         for fuenteLineNum, etiqueta, listaInstLineNum in self.allJumps:
+            print(f"{etiqueta} {listaInstLineNum}")
             if self.ejecutable.getLookupTable(etiqueta) is None:
                 self.errors.append((fuenteLineNum, ERROR_INVALID_JUMP))
             else:
@@ -227,6 +298,8 @@ class Ejecutable:
         self.listaInstrucciones.append(instruccion)
     
     def getInstruccion(self, num):
+        print(num)
+        print(len(self.listaInstrucciones))
         return self.listaInstrucciones[num]
     
     def addLookupTable(self, key : str, value: int):
@@ -249,12 +322,22 @@ class Procesador:
         self.dx = 0
         self.ip = 0
         self.flag = 0
+        self.stack = []
     
     def setRegister(self, register : str, value : str):
         exec(f"self.{register}={value}")
     
     def getRegister(self, register : str):
         return eval(f"self.{register}")
+    
+    def pushStack(self, value : str):
+        if not value.isnumeric():
+            self.stack.append(self.getRegister(value))
+        else:
+            self.stack.append(int(value))
+    
+    def popStack(self, register : str):
+        exec(f"self.{register}=self.stack.pop()")
         
     def mostrar(self):
         return [
@@ -263,8 +346,8 @@ class Procesador:
             ('cx', str(self.cx)),
             ('dx', str(self.dx)),
             ('ip', str(self.ip)),
-            ('flag', str(self.flag))
-        ]
+            ('flag', str(self.flag)),
+        ] + [ ('stack', str(value)) for value in self.stack ]
 
 class Visualizador:
     def __init__(self, anchoCodigo, anchoProcesador, altoPantalla, filaInstruccion):
@@ -324,7 +407,7 @@ class Sistema:
     def __init__(self, ejecutable : Ejecutable, procesador : Procesador):
         self.ejecutable = ejecutable
         self.procesador = procesador
-        self.visualizador = Visualizador(15, 9, 9, 4)
+        self.visualizador = Visualizador(14, 10, 9, 4)
         
     def procesar(self):
         self.procesador.setRegister("ip", self.ejecutable.getEntryPoint())
@@ -350,5 +433,8 @@ def main():
     if not len(ensamblador.getErrores()):
         sistema = Sistema(ensamblador.getEjecutable(), procesador)
         sistema.procesar()
+    else:
+        for error in ensamblador.getErrores():
+            print(error)
     
 main()
