@@ -31,11 +31,11 @@ class Instruccion(ABC):
     
 class Mov(Instruccion):
     def validar(self, line):
-        if re.search("^mov\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|\d+)$", line) is None:
+        if re.search("^mov\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        if self.params[1].isnumeric():
+        if self.params[1].lstrip("-").isnumeric():
             auxSecParam = self.params[1]
         else:
             auxSecParam = f"self.{self.params[1]}"
@@ -48,11 +48,11 @@ class Mov(Instruccion):
     
 class Add(Instruccion):
     def validar(self, line):
-        if re.search("^add\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|\d+)$", line) is None:
+        if re.search("^add\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
-        if self.params[1].isnumeric():
+        if self.params[1].lstrip("-").isnumeric():
             auxSecParam = self.params[1]
         else:
             auxSecParam = f"self.{self.params[1]}"
@@ -91,17 +91,17 @@ class Jnz(Instruccion):
         
 class Cmp(Instruccion):
     def validar(self, line):
-        if re.search("^cmp\s+(ax|bx|cx|dx|\d+)\s+(ax|bx|cx|dx|\d+)$", line) is None:
+        if re.search("^cmp\s+(ax|bx|cx|dx|-?\d+)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
         val1 = self.params[0]
         val2 = self.params[1]
         
-        if not self.params[0].isnumeric():
+        if not self.params[0].lstrip("-").isnumeric():
             val1 = procesador.getRegister(self.params[0])
         
-        if not self.params[1].isnumeric():
+        if not self.params[1].lstrip("-").isnumeric():
             val2 = procesador.getRegister(self.params[1])
         
         procesador.setRegister("flag", f"int({val1}<={val2})")
@@ -139,7 +139,7 @@ class Dec(Instruccion):
         
 class Push(Instruccion):
     def validar(self, line):
-        if re.search("^push\s+(ax|bx|cx|dx|\d+)$", line) is None:
+        if re.search("^push\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -331,7 +331,7 @@ class Procesador:
         return eval(f"self.{register}")
     
     def pushStack(self, value : str):
-        if not value.isnumeric():
+        if not value.lstrip("-").isnumeric():
             self.stack.append(self.getRegister(value))
         else:
             self.stack.append(int(value))
@@ -415,12 +415,12 @@ class Sistema:
         listaInstrucciones = self.ejecutable.getListaInstrucciones()
         
         self.visualizador.mostrar(self.ejecutable, self.procesador)
-        sleep(2)
+        sleep(1)
         while self.procesador.getRegister("ip") < len(listaInstrucciones):
             self.visualizador.mostrar(self.ejecutable, self.procesador)
             instructionPointer = self.procesador.getRegister("ip")
             listaInstrucciones[instructionPointer].procesar(self.procesador)
-            sleep(2)
+            sleep(1)
             
             if self.visualizador.pressedQuit():
                 break
