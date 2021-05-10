@@ -8,6 +8,8 @@ from time import sleep
 ERROR_INVALID_LINE = "Linea de codigo invalida (Instruccion inexistente o sintaxis incorrecta)"
 ERROR_INVALID_PARAMS = "Linea de codigo invalida (Problema en parametros! ¿Cantidad de parametros? ¿Registros invalidos? ¿Parametros no esperados? )"
 ERROR_INVALID_JUMP = "Linea de codigo invalida (No existe etiqueta)"
+ERROR_INVALID_INCLUDE = "Inclusion de codigo invalida (No existe el archivo)"
+ERROR_REPEATED_LABEL = "Etiqueta definida mas de una vez"
 
 class Instruccion(ABC):
     def __init__(self):
@@ -170,7 +172,6 @@ class Ret(Instruccion):
         
     def procesar(self, procesador):
         procesador.setRegister("ip", procesador.stack.pop())
-        procesador.setRegister("stack", "[]")
         
         super().procesar(procesador)
     
@@ -212,19 +213,44 @@ class Ensamblador:
         self.errors = []
         self.allJumps = []
         self.ejecutable = Ejecutable()
+        self.listaInstLineNum = 0
         
-    def procesar(self, nombreArchivo):
+    def chequearIncludes(self, nombreArchivo):
         with open(nombreArchivo, "r") as file:
-            self.ejecutable.setCodigoFuente( [ line.strip().replace('\n', '') for line in file.readlines() ] )
+            lines = [ line.strip().replace('\n', '') for line in file.readlines() ]
+            allIncludes = list(filter(lambda x: self.esInclude(x[1]), enumerate(lines)))
+
+            for fuenteLineNum, line in allIncludes:
+                file = line.split()[1]
+                try:
+                    f = open(file)
+                    self.chequearIncludes(file)
+                    f.close()
+                except Exception as e:
+                    if not len(self.errors):
+                        self.errors.append((fuenteLineNum, nombreArchivo, ERROR_INVALID_INCLUDE))
+                    
+                    raise Exception(e)                    
         
-        listaInstLineNum = 0
-        for fuenteLineNum, line in enumerate(self.ejecutable.getCodigoFuente()):
+    def procesarEjecutable(self, nombreArchivo):
+        with open(nombreArchivo, "r") as file:
+            codigoFuente = [ line.strip().replace('\n', '') for line in file.readlines() ]
+        
+        for fuenteLineNum, line in enumerate(codigoFuente):
             if self.esEtiqueta(line):
-                self.ejecutable.addLookupTable(self.subEtiqueta(line), listaInstLineNum)
+                nombreEtiqueta = self.subEtiqueta(line)
+                if self.ejecutable.getLookupTable(nombreEtiqueta):
+                    self.errors.append((fuenteLineNum, nombreArchivo, ERROR_REPEATED_LABEL))
+                else:
+                    self.ejecutable.addLookupTable(nombreEtiqueta, self.listaInstLineNum)
+            elif self.esInclude(line):
+                includeArchivo = line.split()[1]
+                
+                self.procesarEjecutable(includeArchivo)
             elif self.esInstruccion(line):
                 preInstruccion = self.getInstruccion(line)
                 if preInstruccion == "call":
-                    instruccion = VALID_INSTRUCTIONS[preInstruccion](str(listaInstLineNum))
+                    instruccion = VALID_INSTRUCTIONS[preInstruccion](str(self.listaInstLineNum))
                 else:
                     instruccion = VALID_INSTRUCTIONS[preInstruccion]()
                 
@@ -234,22 +260,33 @@ class Ensamblador:
                     instruccion.setParams(params)
                     
                     if isinstance(instruccion, Jnz) or isinstance(instruccion, Jmp) or isinstance(instruccion, Call):
-                        self.allJumps.append((fuenteLineNum, *instruccion.getParams(), listaInstLineNum))
+                        self.allJumps.append((fuenteLineNum, nombreArchivo, *instruccion.getParams(), self.listaInstLineNum))
                         
                     self.ejecutable.addListaInstrucciones(instruccion)
                     instruccion.validar(line)
                 except Exception as e:
-                    self.errors.append((fuenteLineNum, str(e)))
+                    self.errors.append((fuenteLineNum, nombreArchivo, str(e)))
                 
-                listaInstLineNum += 1
+                self.listaInstLineNum += 1
             elif not len(line) or line[0] == "#":
                 continue
             else:
-                self.errors.append((fuenteLineNum, ERROR_INVALID_LINE))
+                self.errors.append((fuenteLineNum, nombreArchivo, ERROR_INVALID_LINE))
+    
+    def procesar(self, nombreArchivo):
+        try:
+            self.chequearIncludes(nombreArchivo)
+        except Exception as e:
+            return
         
+        self.procesarEjecutable(nombreArchivo)
+                
         self.validarAllJumps()
         self.ejecutable.setEntryPoint()
-        
+    
+    def esInclude(self, line):
+        return not re.search(r"^include[\s]+[\w.]+$", line) is None
+    
     def esEtiqueta(self, line):
         return not re.search(r"^(\w+):$", line) is None
     
@@ -263,10 +300,9 @@ class Ensamblador:
         return line.split()[0]
     
     def validarAllJumps(self):
-        for fuenteLineNum, etiqueta, listaInstLineNum in self.allJumps:
-            print(f"{etiqueta} {listaInstLineNum}")
+        for fuenteLineNum, nombreArchivo, etiqueta, listaInstLineNum in self.allJumps:
             if self.ejecutable.getLookupTable(etiqueta) is None:
-                self.errors.append((fuenteLineNum, ERROR_INVALID_JUMP))
+                self.errors.append((fuenteLineNum, nombreArchivo, ERROR_INVALID_JUMP))
             else:
                 instruccion = self.ejecutable.getInstruccion(listaInstLineNum)
                 toLabel = instruccion.getParams()[0]
@@ -284,12 +320,6 @@ class Ejecutable:
         self.lookupTable = dict()
         self.listaInstrucciones = []
         self.entryPoint = 0
-    
-    def setCodigoFuente(self, codigoFuente : str):
-        self.codigoFuente = codigoFuente
-    
-    def getCodigoFuente(self):
-        return self.codigoFuente
 
     def getListaInstrucciones(self):
         return self.listaInstrucciones
@@ -298,8 +328,6 @@ class Ejecutable:
         self.listaInstrucciones.append(instruccion)
     
     def getInstruccion(self, num):
-        print(num)
-        print(len(self.listaInstrucciones))
         return self.listaInstrucciones[num]
     
     def addLookupTable(self, key : str, value: int):
