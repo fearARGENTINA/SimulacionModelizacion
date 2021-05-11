@@ -11,6 +11,10 @@ ERROR_INVALID_JUMP = "Linea de codigo invalida (No existe etiqueta)"
 ERROR_INVALID_INCLUDE = "Inclusion de codigo invalida (No existe el archivo)"
 ERROR_REPEATED_LABEL = "Etiqueta definida mas de una vez"
 
+PROCESO_ACTIVO      = 0
+PROCESO_BLOQUEADO   = 1
+PROCESO_FINALIZADO  = 2
+
 class Instruccion(ABC):
     def __init__(self):
         self.params = []
@@ -212,7 +216,7 @@ class Ensamblador:
     def __init__(self):
         self.errors = []
         self.allJumps = []
-        self.ejecutable = Ejecutable()
+        self.ejecutable = None
         self.listaInstLineNum = 0
         
     def chequearIncludes(self, nombreArchivo):
@@ -233,6 +237,8 @@ class Ensamblador:
                     raise Exception(e)                    
         
     def procesarEjecutable(self, nombreArchivo):
+        self.ejecutable = Ejecutable()
+        
         with open(nombreArchivo, "r") as file:
             codigoFuente = [ line.strip().replace('\n', '') for line in file.readlines() ]
         
@@ -283,6 +289,12 @@ class Ensamblador:
                 
         self.validarAllJumps()
         self.ejecutable.setEntryPoint()
+    
+    def limpiar(self):
+        self.errors = []
+        self.allJumps = []
+        self.ejecutable = None
+        self.listaInstLineNum = 0
     
     def esInclude(self, line):
         return not re.search(r"^include[\s]+[\w.]+$", line) is None
@@ -341,9 +353,65 @@ class Ejecutable:
     
     def getEntryPoint(self):
         return self.entryPoint
+
+class Visualizador:
+    def __init__(self, anchoCodigo, anchoProcesador, altoPantalla, filaInstruccion):
+        self.stdscr = curses.initscr()
+        self.stdscr.nodelay(True)
+        self.anchoCodigo = anchoCodigo
+        self.anchoProcesador = anchoProcesador
+        self.alto = altoPantalla
+        self.filaInstruccion = filaInstruccion
         
+    def mostrar(self, ejecutable, procesador, procesoActivo):
+        allInstrucciones = ejecutable.getListaInstrucciones()
+        self.instructionPointer = procesador.getRegister("ip")
+        
+        minShow = self.instructionPointer - self.filaInstruccion
+        maxShow = self.instructionPointer + (self.alto - self.filaInstruccion)
+        
+        instrucciones = allInstrucciones[max(0, minShow):maxShow]
+        
+        firstPadding = max(self.filaInstruccion - self.instructionPointer, 0)
+        dataShow = [""]*firstPadding + list(map(lambda instruccion: instruccion.mostrar(), instrucciones))
+        
+        if len(dataShow) > self.alto:
+            dataShow = dataShow[:self.alto]
+        elif len(dataShow) < self.alto:
+            dataShow += [""]*(self.alto-len(dataShow))
+        
+        self.stdscr.clear()
+        
+        self.dibujar(dataShow, procesador.mostrar(), procesoActivo)
+        
+        self.stdscr.refresh()
+                
+    def dibujar(self, lineasCodigo, dataProcesador, procesoActivo):
+        for fila in range(0, self.alto):
+            if fila == self.filaInstruccion:
+                self.stdscr.addstr(fila, 0, ">")
+            else:
+                self.stdscr.addstr(fila, 0, " ")
+            
+            for col in range(0, min(self.anchoCodigo, len(lineasCodigo[fila]))):
+                self.stdscr.addstr(fila, 1+col, lineasCodigo[fila][col])
+                
+            self.stdscr.addstr(fila, self.anchoCodigo, "|")
+            
+            if fila < len(dataProcesador):
+                line = " : ".join(dataProcesador[fila])
+                
+                for col in range(0, min(self.anchoProcesador, len(line))):
+                    self.stdscr.addstr(fila, self.anchoCodigo+1+col, line[col])
+        
+        self.stdscr.addstr(self.alto+1, 0, f"PROCESO EN EJECUCION: {procesoActivo}")
+        
+    def pressedQuit(self):
+        return self.stdscr.getch() == ord('q')
+
 class Procesador:
     def __init__(self):
+        self.procesoActivo = None
         self.ax = 0
         self.bx = 0
         self.cx = 0
@@ -357,6 +425,9 @@ class Procesador:
     
     def getRegister(self, register : str):
         return eval(f"self.{register}")
+    
+    def setProcesoActivo(self, proceso):
+        self.procesoActivo = proceso
     
     def pushStack(self, value : str):
         if not value.lstrip("-").isnumeric():
@@ -376,93 +447,168 @@ class Procesador:
             ('ip', str(self.ip)),
             ('flag', str(self.flag)),
         ] + [ ('stack', str(value)) for value in self.stack ]
-
-class Visualizador:
-    def __init__(self, anchoCodigo, anchoProcesador, altoPantalla, filaInstruccion):
-        self.stdscr = curses.initscr()
-        self.stdscr.nodelay(True)
-        self.anchoCodigo = anchoCodigo
-        self.anchoProcesador = anchoProcesador
-        self.alto = altoPantalla
-        self.filaInstruccion = filaInstruccion
+    
+    def procesar(self, sistema):
+        visualizador = sistema.visualizador
+        ejecutable = self.procesoActivo.getEjecutable()
+        listaInstrucciones = ejecutable.getListaInstrucciones()
         
-    def mostrar(self, ejecutable, procesador):
-        allInstrucciones = ejecutable.getListaInstrucciones()
-        self.instructionPointer = procesador.getRegister("ip")
-        
-        minShow = self.instructionPointer - self.filaInstruccion
-        maxShow = self.instructionPointer + (self.alto - self.filaInstruccion)
-        
-        instrucciones = allInstrucciones[max(0, minShow):maxShow]
-        
-        firstPadding = max(self.filaInstruccion - self.instructionPointer, 0)
-        dataShow = [""]*firstPadding + list(map(lambda instruccion: instruccion.mostrar(), instrucciones))
-        
-        if len(dataShow) > self.alto:
-            dataShow = dataShow[:self.alto]
-        elif len(dataShow) < self.alto:
-            dataShow += [""]*(self.alto-len(dataShow))
-        
-        self.stdscr.clear()
-        
-        self.dibujar(dataShow, procesador.mostrar())
-        
-        self.stdscr.refresh()
-        
-                
-    def dibujar(self, lineasCodigo, dataProcesador):
-        for fila in range(0, self.alto):
-            if fila == self.filaInstruccion:
-                self.stdscr.addstr(fila, 0, ">")
-            else:
-                self.stdscr.addstr(fila, 0, " ")
-            
-            for col in range(0, min(self.anchoCodigo, len(lineasCodigo[fila]))):
-                self.stdscr.addstr(fila, 1+col, lineasCodigo[fila][col])
-                
-            self.stdscr.addstr(fila, self.anchoCodigo, "|")
-            
-            if fila < len(dataProcesador):
-                line = " : ".join(dataProcesador[fila])
-                
-                for col in range(0, min(self.anchoProcesador, len(line))):
-                    self.stdscr.addstr(fila, self.anchoCodigo+1+col, line[col])
-        
-    def pressedQuit(self):
-        return self.stdscr.getch() == ord('q')
-        
-class Sistema:
-    def __init__(self, ejecutable : Ejecutable, procesador : Procesador):
-        self.ejecutable = ejecutable
-        self.procesador = procesador
-        self.visualizador = Visualizador(14, 10, 9, 4)
-        
-    def procesar(self):
-        self.procesador.setRegister("ip", self.ejecutable.getEntryPoint())
-        
-        listaInstrucciones = self.ejecutable.getListaInstrucciones()
-        
-        self.visualizador.mostrar(self.ejecutable, self.procesador)
-        sleep(1)
-        while self.procesador.getRegister("ip") < len(listaInstrucciones):
-            self.visualizador.mostrar(self.ejecutable, self.procesador)
-            instructionPointer = self.procesador.getRegister("ip")
-            listaInstrucciones[instructionPointer].procesar(self.procesador)
-            sleep(1)
-            
-            if self.visualizador.pressedQuit():
+        while self.ip < len(listaInstrucciones):
+            if self.procesoActivo.getEstado() == PROCESO_BLOQUEADO or self.procesoActivo.getEstado() == PROCESO_FINALIZADO:
+                print(f"EL PROCESO ACTIVO ELEGIDO ESTA MAL: {self.procesoActivo.getEstado()}")
                 break
+            
+            print(listaInstrucciones[self.ip])
+            visualizador.mostrar(self.procesoActivo.getEjecutable(), self, sistema.procesoActivo)
+            listaInstrucciones[self.ip].procesar(self)
+            sistema.clockHandler()
+            sleep(0.1)
+            
+            if visualizador.pressedQuit():
+                break
+            
+            ejecutable = self.procesoActivo.getEjecutable()
+            listaInstrucciones = ejecutable.getListaInstrucciones()
+                
+    def getContexto(self):
+        return {
+            'ax': self.ax,
+            'bx': self.bx,
+            'cx': self.cx,
+            'dx': self.dx,
+            'ip': self.ip,
+            'flag': self.flag,
+            'stack' : self.stack
+        }
+        
+    def setContexto(self, contexto):
+        for key, value in contexto.items():
+            exec(f"self.{key}={value}")
+           
+class ProcesosFinalizadosException(Exception):
+    pass
+
+class Proceso:
+    def __init__(self, ejecutable, estado = PROCESO_BLOQUEADO):
+        self.ejecutable = ejecutable
+        self.contexto = {'ip' : ejecutable.getEntryPoint(), 'stack': [], 'ax': 0, 'bx': 0, 'cx': 0, 'dx': 0, 'flag': 0}
+        self.estado = estado
+        self.contadorInstrucciones = 0
+        
+    def cambiarEstado(self, estado, procesador):
+        self.estado = estado
+        self.contexto = procesador.getContexto()
+        
+    def getEstado(self):
+        return self.estado
+    
+    def setEstado(self, estado):
+        self.estado = estado
+        
+    def getEjecutable(self):
+        return self.ejecutable
+        
+    def getContexto(self):
+        return self.contexto
+    
+    def setContadorInstrucciones(self, contador):
+        self.contadorInstrucciones = contador
+
+class Sistema:
+    def __init__(self, procesador : Procesador, procesos = []):
+        self.procesador = procesador
+        self.visualizador = Visualizador(14, 10, 15, 4)
+        self.listaProcesos = procesos
+        self.procesoActivo = None
+        self.RAFAGA_INSTRUCCIONES = 5
+        
+    def pushProceso(self, procesos : list):
+        self.listaProcesos += procesos
+    
+    def buscarSiguienteProceso(self):
+        desdeProceso = self.procesoActivo
+        
+        while True:
+            self.procesoActivo += 1
+            
+            if self.procesoActivo >= len(self.listaProcesos):
+                self.procesoActivo = 0
+            
+            if self.listaProcesos[self.procesoActivo].getEstado() == PROCESO_BLOQUEADO:
+                print(f"SE ENCONTRO PROCESO: {self.listaProcesos[self.procesoActivo]}")
+                self.listaProcesos[self.procesoActivo].setEstado(PROCESO_ACTIVO)
+                self.listaProcesos[self.procesoActivo].setContadorInstrucciones(0)
+                self.procesador.setProcesoActivo(self.listaProcesos[self.procesoActivo])
+                self.procesador.setContexto(self.listaProcesos[self.procesoActivo].getContexto())
+                break
+                
+            if self.procesoActivo == desdeProceso:
+                raise ProcesosFinalizadosException("Se finalizaron todos los procesos en la lista de procesos")
+
+    def clockHandler(self):        
+        self.listaProcesos[self.procesoActivo].contadorInstrucciones += 1
+        
+        if self.listaProcesos[self.procesoActivo].contadorInstrucciones >= self.RAFAGA_INSTRUCCIONES:
+            print("SE ALCANZO RAFAGA DE INSTRUCCIONES")
+            self.listaProcesos[self.procesoActivo].cambiarEstado(PROCESO_BLOQUEADO, self.procesador)
+            
+            self.buscarSiguienteProceso()
+        else:
+            ejecutable = self.listaProcesos[self.procesoActivo].getEjecutable()
+            
+            if self.procesador.getRegister("ip") >= len(ejecutable.getListaInstrucciones()):
+                self.listaProcesos[self.procesoActivo].cambiarEstado(PROCESO_FINALIZADO, self.procesador)
+                
+                self.buscarSiguienteProceso()
+    
+    def procesar(self):
+        if len(self.listaProcesos):
+            self.procesoActivo = 0
+            self.procesador.setProcesoActivo(self.listaProcesos[0])
+            self.procesador.setContexto(self.listaProcesos[0].getContexto())
+            self.procesador.procesar(self)
+        else:
+            print("No existen procesos en la lista de procesos...")
         
 def main():
-    ensamblador = Ensamblador()
-    ensamblador.procesar("main.asm")
     procesador = Procesador()
+    ensamblador = Ensamblador()
     
-    if not len(ensamblador.getErrores()):
-        sistema = Sistema(ensamblador.getEjecutable(), procesador)
-        sistema.procesar()
-    else:
-        for error in ensamblador.getErrores():
-            print(error)
+    codigosFuentes = [("proceso1.asm", PROCESO_ACTIVO), ("proceso2.asm", PROCESO_BLOQUEADO), ("proceso2.asm", PROCESO_BLOQUEADO), ("proceso1.asm", PROCESO_BLOQUEADO)]
+    procesos = []
+    hayError = False
+    
+    for i, codigo in enumerate(codigosFuentes):
+        ensamblador.procesar(codigo[0])
+        if len(ensamblador.getErrores()):
+            for error in ensamblador.getErrores():
+                print(error)
+            
+            hayError = True
+            ensamblador.limpiar()
+            break
+            
+        procesos += [Proceso(ensamblador.getEjecutable(), codigo[1])]
+        
+        print(f"PROCESO {procesos[i]}")
+        print(f"CONTEXTO DE PROCESO {i}")
+        print(procesos[i].getContexto())
+        print(f"\n\nLISTA INSTRUCCIONES PROCESO {i}")
+        for a in ensamblador.getEjecutable().getListaInstrucciones():
+            print(a)
+            
+        print("\n\n########################################################\n\n")
+        
+        ensamblador.limpiar()
+    
+    if not hayError:
+        sistema = Sistema(procesador, procesos)
+        
+        try:
+            sistema.procesar()
+        except ProcesosFinalizadosException as e:
+            print(e)
+            print("Finalizaron todos los procesos o no existen procesos por ejecutar...")
+            
     
 main()

@@ -1,4 +1,3 @@
-
 # Multiplicacion entera (bx = factor, cx = factor) => bx * cx **** Devuelve ax = producto
 multiplicar:
 	pop bx
