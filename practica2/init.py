@@ -454,15 +454,17 @@ class Procesador:
         listaInstrucciones = ejecutable.getListaInstrucciones()
         
         while self.ip < len(listaInstrucciones):
+            '''
             if self.procesoActivo.getEstado() == PROCESO_BLOQUEADO or self.procesoActivo.getEstado() == PROCESO_FINALIZADO:
                 print(f"EL PROCESO ACTIVO ELEGIDO ESTA MAL: {self.procesoActivo.getEstado()}")
                 break
+            '''
             
             print(listaInstrucciones[self.ip])
             visualizador.mostrar(self.procesoActivo.getEjecutable(), self, sistema.procesoActivo)
             listaInstrucciones[self.ip].procesar(self)
             sistema.clockHandler()
-            sleep(0.1)
+            #sleep(0.01)
             
             if visualizador.pressedQuit():
                 break
@@ -547,19 +549,18 @@ class Sistema:
 
     def clockHandler(self):        
         self.listaProcesos[self.procesoActivo].contadorInstrucciones += 1
+        ejecutable = self.listaProcesos[self.procesoActivo].getEjecutable()
         
-        if self.listaProcesos[self.procesoActivo].contadorInstrucciones >= self.RAFAGA_INSTRUCCIONES:
+        if self.procesador.getRegister("ip") >= len(ejecutable.getListaInstrucciones()):
+            self.listaProcesos[self.procesoActivo].cambiarEstado(PROCESO_FINALIZADO, self.procesador)
+            
+            self.buscarSiguienteProceso()
+        elif self.listaProcesos[self.procesoActivo].contadorInstrucciones >= self.RAFAGA_INSTRUCCIONES:
             print("SE ALCANZO RAFAGA DE INSTRUCCIONES")
             self.listaProcesos[self.procesoActivo].cambiarEstado(PROCESO_BLOQUEADO, self.procesador)
             
             self.buscarSiguienteProceso()
-        else:
-            ejecutable = self.listaProcesos[self.procesoActivo].getEjecutable()
-            
-            if self.procesador.getRegister("ip") >= len(ejecutable.getListaInstrucciones()):
-                self.listaProcesos[self.procesoActivo].cambiarEstado(PROCESO_FINALIZADO, self.procesador)
-                
-                self.buscarSiguienteProceso()
+                     
     
     def procesar(self):
         if len(self.listaProcesos):
@@ -574,7 +575,7 @@ def main():
     procesador = Procesador()
     ensamblador = Ensamblador()
     
-    codigosFuentes = [("proceso1.asm", PROCESO_ACTIVO), ("proceso2.asm", PROCESO_BLOQUEADO), ("proceso2.asm", PROCESO_BLOQUEADO), ("proceso1.asm", PROCESO_BLOQUEADO)]
+    codigosFuentes = [("proceso1.asm", PROCESO_ACTIVO)]
     procesos = []
     hayError = False
     
@@ -597,7 +598,7 @@ def main():
         for a in ensamblador.getEjecutable().getListaInstrucciones():
             print(a)
             
-        print("\n\n########################################################\n\n")
+        print("\n\n#######################################################\n\n")
         
         ensamblador.limpiar()
     
@@ -609,6 +610,7 @@ def main():
         except ProcesosFinalizadosException as e:
             print(e)
             print("Finalizaron todos los procesos o no existen procesos por ejecutar...")
+            sleep(5)
             
     
 main()

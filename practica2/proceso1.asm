@@ -1,12 +1,9 @@
 include funciones.asm
 
 entry_point:
-	push 2
-	push 9
-	call multiplicar
+	push 1
+	push -2
+	push 1
+	call raiz_cuadratica
 	cmp 6 0
-	cmp 5 0
-	cmp 4 0
-	cmp 3 0
-	cmp 2 0
-	cmp 1 0
+	

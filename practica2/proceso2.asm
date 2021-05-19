@@ -10,4 +10,3 @@ entry_point:
 	cmp 10 0
 	cmp 11 0
 	cmp 12 0
-	
