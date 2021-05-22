@@ -1,8 +1,8 @@
 include funciones.asm
 
 entry_point:
-	push 5
-	push 15
+	push -1
+	push -1
 	call sumar
 	cmp 7 0
 	cmp 8 0

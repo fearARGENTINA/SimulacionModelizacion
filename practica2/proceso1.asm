@@ -1,9 +1,8 @@
 include funciones.asm
 
 entry_point:
-	push 1
-	push -2
-	push 1
-	call raiz_cuadratica
+	push -10
+	push -5
+	call dividir
 	cmp 6 0
 	

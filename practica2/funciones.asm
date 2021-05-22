@@ -7,18 +7,62 @@ sumar:
 	mov ax cx
 	ret
 
+negativo:
+	pop ax
+	pop bx
+	push ax
+	mov flag bx
+	jnz negativo_bx_isnotzero
+	mov ax 0
+	ret
+negativo_bx_isnotzero:
+	mov ax 0
+	cmp 0 bx
+	jnz negativo_bx_ispos
+negativo_bx_isneg:
+	inc bx
+	inc ax
+	cmp bx -1
+	jnz negativo_bx_isneg
+	ret
+negativo_bx_ispos:
+	dec bx
+	dec ax
+	cmp 1 bx
+	jnz negativo_bx_ispos
+	ret
+
 # Division entera (cx = dividendo, bx = divisor) => cx / bx **** Devuelve dx = cociente, cx = resto
 dividir:
 	pop ax
 	pop bx
 	pop cx
 	push ax
+	mov flag cx
+	jnz dividir_dividendo_notzero
+	mov cx 0
+	mov dx 0
+	ret
+dividir_dividendo_notzero:
+	push cx
+	push bx
+	cmp 0 cx
+	jnz dividir_cx_ispos
+	push cx
+	call negativo
+	mov cx ax
+dividir_cx_ispos:
+	cmp 0 bx
+	jnz dividir_bx_ispos
+	push bx
+	call negativo
+	mov bx ax
+dividir_bx_ispos:
 	# Multiplico por -1 uno de los valores para realizar la resta por suma, al finalizar el registro ax tendra el valor de bx (divisor) pero negativo
 	push cx
 	push bx
 	push bx
-	push -1
-	call multiplicar
+	call negativo
 	pop bx
 	pop cx
 loop_div:
@@ -27,6 +71,95 @@ loop_div:
 	inc dx
 	jnz loop_div
 	cmp 1 0
+	pop bx
+	pop ax
+	push cx
+	push dx
+	push ax
+	push bx
+	call multiplicar2
+	cmp 0 ax
+	jnz finish
+	call negativo
+	push ax
+finish:
+	pop dx
+	pop cx
+	ret
+
+#def mult(bx, cx):
+#    if bx == 0 or cx == 0:
+#        return 0
+#    else:
+#        if bx < 0:
+#			if cx > 0:
+#           	return bx + mult(bx, cx - 1)
+#        	elif cx < 0:
+#            return -cx + mult(-bx - 1, -cx)
+#        else:
+#            return cx + mult(bx - 1, cx)
+multiplicar2:
+	pop ax
+	pop bx
+	pop cx
+	push ax
+	# if bx == 0
+	mov flag bx
+	jnz check_cx
+	jmp some_zero
+check_cx:
+	# or if cx == 0
+	mov flag cx
+	jnz ret_notzeros
+	# return 0
+some_zero:
+	mov ax 0
+	ret
+	# else: (bx != 0 y cx != 0)
+ret_notzeros:
+	# if bx < 0:
+	cmp bx -1
+	jnz bx_isneg
+	# else: (bx > 0)
+	# return cx + multiplicar2(bx-1, cx)
+	push cx
+	dec bx
+	push bx
+	push cx
+	call multiplicar2
+	push ax
+	call sumar
+	ret
+bx_isneg:
+	# cx > 0 -> cx:
+	cmp 0 cx
+	jnz cx_ispos
+	# cx < 0:
+	push bx
+	push cx
+	call negativo
+	# cx = -cx_antiguo
+	mov cx ax
+	call negativo
+	# bx = -bx_antiguo
+	mov bx ax
+	push cx
+	dec bx
+	push bx
+	push cx
+	call multiplicar2
+	push ax
+	call sumar
+	ret
+	# cx > 0:
+cx_ispos:
+	push bx
+	dec cx
+	push bx
+	push cx
+	call multiplicar2
+	push ax
+	call sumar
 	ret
 	
 # Multiplicacion entera (bx = factor, cx = factor) => bx * cx **** Devuelve ax = producto
@@ -168,7 +301,7 @@ raiz_cuadratica:
 	push cx
 	push ax
 	push 2
-	call multiplicar
+	call multiplicar2
 	mov dx ax
 	pop cx
 	pop bx
@@ -179,8 +312,7 @@ raiz_cuadratica:
 	push bx
 	push cx
 	push bx
-	push -1
-	call multiplicar
+	call negativo
 	mov dx ax
 	pop cx
 	pop bx
@@ -192,7 +324,7 @@ raiz_cuadratica:
 	push cx
 	push bx
 	push bx
-	call multiplicar
+	call multiplicar2
 	mov dx ax
 	pop cx
 	pop bx
@@ -204,7 +336,7 @@ raiz_cuadratica:
 	push cx
 	push ax
 	push cx
-	call multiplicar
+	call multiplicar2
 	mov dx ax
 	pop cx
 	pop bx
@@ -215,7 +347,7 @@ raiz_cuadratica:
 	push cx
 	push dx
 	push -4
-	call multiplicar
+	call multiplicar2
 	mov dx ax
 	pop cx
 	pop bx
@@ -234,8 +366,7 @@ raiz_cuadratica:
 	# -B
 	# sqrt(B^2-4*A*C)
 	push cx
-	push -1
-	call multiplicar
+	call negativo
 	push ax
 	# En este punto el stack es el siguiente:
 	# 2*A 				= ax

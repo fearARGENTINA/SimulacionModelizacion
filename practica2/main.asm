@@ -3,7 +3,7 @@ include funciones.asm
 entry_point:
 	push 2
 	push 9
-	call multiplicar
+	call multiplicar2
 	cmp 6 0
 	cmp 5 0
 	cmp 4 0

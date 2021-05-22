@@ -37,7 +37,7 @@ class Instruccion(ABC):
     
 class Mov(Instruccion):
     def validar(self, line):
-        if re.search("^mov\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
+        if re.search("^mov\s+(ax|bx|cx|dx|ip|flag)\s+(ax|bx|cx|dx|ip|flag|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -54,7 +54,7 @@ class Mov(Instruccion):
     
 class Add(Instruccion):
     def validar(self, line):
-        if re.search("^add\s+(ax|bx|cx|dx)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
+        if re.search("^add\s+(ax|bx|cx|dx|ip|flag)\s+(ax|bx|cx|dx|ip|flag|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -97,7 +97,7 @@ class Jnz(Instruccion):
         
 class Cmp(Instruccion):
     def validar(self, line):
-        if re.search("^cmp\s+(ax|bx|cx|dx|-?\d+)\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
+        if re.search("^cmp\s+(ax|bx|cx|dx|ip|flag|-?\d+)\s+(ax|bx|cx|dx|ip|flag|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -119,7 +119,7 @@ class Cmp(Instruccion):
         
 class Inc(Instruccion):
     def validar(self, line):
-        if re.search("^inc\s+(ax|bx|cx|dx)$", line) is None:
+        if re.search("^inc\s+(ax|bx|cx|dx|flag|ip)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -132,7 +132,7 @@ class Inc(Instruccion):
         
 class Dec(Instruccion):
     def validar(self, line):
-        if re.search("^dec\s+(ax|bx|cx|dx)$", line) is None:
+        if re.search("^dec\s+(ax|bx|cx|dx|flag|ip)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -145,7 +145,7 @@ class Dec(Instruccion):
         
 class Push(Instruccion):
     def validar(self, line):
-        if re.search("^push\s+(ax|bx|cx|dx|-?\d+)$", line) is None:
+        if re.search("^push\s+(ax|bx|cx|dx|ip|flag|-?\d+)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
@@ -158,7 +158,7 @@ class Push(Instruccion):
         
 class Pop(Instruccion):
     def validar(self, line):
-        if re.search("^pop\s+(ax|bx|cx|dx)$", line) is None:
+        if re.search("^pop\s+(ax|bx|cx|dx|flag|ip)$", line) is None:
             raise Exception(ERROR_INVALID_PARAMS)
         
     def procesar(self, procesador):
