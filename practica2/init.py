@@ -34,7 +34,18 @@ class Instruccion(ABC):
     @abstractmethod
     def validar(self):
         pass
+
+class Sleep(Instruccion):
+    def validar(self, line):
+        if re.search("^sleep\s+\d+$", line) is None:
+            raise Exception(ERROR_INVALID_PARAMS)
+        
+    def procesar(self, procesador):
+       sleep(int(self.params[0]))
     
+    def mostrar(self):
+        return super().mostrar("sleep")
+
 class Mov(Instruccion):
     def validar(self, line):
         if re.search("^mov\s+(ax|bx|cx|dx|ip|flag)\s+(ax|bx|cx|dx|ip|flag|-?\d+)$", line) is None:
@@ -209,7 +220,8 @@ VALID_INSTRUCTIONS = {
     "call" : Call, 
     "pop" : Pop, 
     "push" : Push, 
-    "ret" : Ret 
+    "ret" : Ret,
+    "sleep": Sleep
 }
 
 class Ensamblador:
@@ -464,7 +476,7 @@ class Procesador:
             visualizador.mostrar(self.procesoActivo.getEjecutable(), self, sistema.procesoActivo)
             listaInstrucciones[self.ip].procesar(self)
             sistema.clockHandler()
-            #sleep(0.01)
+            #sleep(1)
             
             if visualizador.pressedQuit():
                 break

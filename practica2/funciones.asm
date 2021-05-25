@@ -1,3 +1,8 @@
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			SUMA ENTERA								**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 sumar:
 	pop bx
 	pop cx
@@ -7,6 +12,11 @@ sumar:
 	mov ax cx
 	ret
 
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			NEGATIVO ENTERO							**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 negativo:
 	pop ax
 	pop bx
@@ -32,12 +42,20 @@ negativo_bx_ispos:
 	jnz negativo_bx_ispos
 	ret
 
+
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			DIVISION ENTERA							**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 # Division entera (cx = dividendo, bx = divisor) => cx / bx **** Devuelve dx = cociente, cx = resto
 dividir:
 	pop ax
 	pop bx
 	pop cx
 	push ax
+	mov ax 0
+	mov dx 0
 	mov flag cx
 	jnz dividir_dividendo_notzero
 	mov cx 0
@@ -46,47 +64,77 @@ dividir:
 dividir_dividendo_notzero:
 	push cx
 	push bx
+	push bx
 	cmp 0 cx
 	jnz dividir_cx_ispos
 	push cx
 	call negativo
 	mov cx ax
 dividir_cx_ispos:
+	pop bx
+	push cx
 	cmp 0 bx
 	jnz dividir_bx_ispos
 	push bx
 	call negativo
 	mov bx ax
 dividir_bx_ispos:
+	pop cx
 	# Multiplico por -1 uno de los valores para realizar la resta por suma, al finalizar el registro ax tendra el valor de bx (divisor) pero negativo
+	cmp bx cx
+	jnz dividir_normal_flow
+	pop bx
+	pop cx
+	mov dx 0
+	ret
+dividir_normal_flow:
 	push cx
 	push bx
 	push bx
 	call negativo
 	pop bx
 	pop cx
-loop_div:
+dividir_loop:
 	add cx ax
 	cmp bx cx
 	inc dx
-	jnz loop_div
-	cmp 1 0
+	jnz dividir_loop
 	pop bx
 	pop ax
 	push cx
+	push ax
 	push dx
 	push ax
 	push bx
 	call multiplicar2
 	cmp 0 ax
-	jnz finish
+	jnz dividir_check_sign_resto
 	call negativo
 	push ax
-finish:
+dividir_check_sign_resto:
+	pop dx
+	pop ax
+	push dx
+	cmp 0 ax
+	jnz dividir_finish
+	pop dx
+	pop cx
+	push dx
+	push cx
+	call negativo
+	pop dx
+	push ax
+	push dx
+dividir_finish:
 	pop dx
 	pop cx
 	ret
 
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			MULTIPLICACION ENTERA					**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 #def mult(bx, cx):
 #    if bx == 0 or cx == 0:
 #        return 0
@@ -98,7 +146,7 @@ finish:
 #            return -cx + mult(-bx - 1, -cx)
 #        else:
 #            return cx + mult(bx - 1, cx)
-multiplicar2:
+multiplicar:
 	pop ax
 	pop bx
 	pop cx
@@ -161,22 +209,13 @@ cx_ispos:
 	push ax
 	call sumar
 	ret
-	
-# Multiplicacion entera (bx = factor, cx = factor) => bx * cx **** Devuelve ax = producto
-multiplicar:
-	pop bx
-	pop cx
-	pop dx
-	push bx
-	mov ax 0
-loop_mult:
-	dec dx
-	add ax cx
-	cmp 1 dx
-	jnz loop_mult
-	cmp 1 0
-	ret
-	
+
+
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			RAIZ CUADRADA ENTERA					**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 #	************* Metodo de Newton *************
 #	def isqrt(n):
 #		x = n
@@ -249,7 +288,12 @@ loop_raiz:
 fin_raiz:
 	cmp 1 0
 	ret
-	
+
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			FIBONACCI								**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 # def fib(n):
 #     if n < 2:
 #         return n
@@ -286,120 +330,101 @@ calcular_fibonacci:
 	mov bx ax
 	ret
 
-
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
+# ****************************************			RAIZ CUADRATICA							**********************************************************
+# ****************************************************************************************************************************************************
+# ****************************************************************************************************************************************************
 # A*x^2 + B*X + C
 # (-B +- sqrt(B^2-4*A*C))/(2*A)
+# CX = RAIZ 1 (POSITIVA), DX = RAIZ 2 (NEGATIVA)
 raiz_cuadratica:
 	pop dx
-	# A = ax, B = bx, C = cx
 	pop cx
 	pop bx
 	pop ax
 	push dx
-	push ax
-	push bx
 	push cx
+	push bx
+	push ax
 	push ax
 	push 2
 	call multiplicar2
 	mov dx ax
-	pop cx
-	pop bx
 	pop ax
-	# Meto en stack 2*A
+	pop bx
+	pop cx
+	# PUSHEO AL STACK DX QUE ES IGUAL A 2*A = 2*ax
 	push dx
-	push ax
-	push bx
 	push cx
+	push bx
+	push ax
 	push bx
 	call negativo
 	mov dx ax
-	pop cx
-	pop bx
 	pop ax
-	# Meto en stack -B
+	pop bx
+	pop cx
+	# PUSHEO AL STACK DX QUE ES IGUAL A -B = -bx
 	push dx
-	push ax
-	push bx
 	push cx
+	push bx
+	push ax
 	push bx
 	push bx
 	call multiplicar2
 	mov dx ax
-	pop cx
-	pop bx
 	pop ax
-	# Meto en stack B^2
+	pop bx
+	pop cx
+	# PUSHEO AL STACK DX QUE ES IGUAL A B^2 = bx^2
 	push dx
-	push ax
-	push bx
-	push cx
 	push ax
 	push cx
 	call multiplicar2
-	mov dx ax
-	pop cx
-	pop bx
-	pop ax
-	# dx = A * C
 	push ax
-	push bx
-	push cx
-	push dx
 	push -4
 	call multiplicar2
 	mov dx ax
-	pop cx
-	pop bx
-	pop ax
-	# Meto en stack -4*A*C
+	# PUSHEO AL STACK DX QUE ES IGUAL A -4*A*C = -4*ax*cx
 	push dx
 	call sumar
-	# ax = B^2-4*A*C
 	push ax
 	call raiz
-	# cx = sqrt(B^2-4*A*C)
-	# Meto en stack sqrt(B^2-4*A*C)
 	push cx
-	# En este punto el stack es el siguiente:
-	# 2*A
-	# -B
-	# sqrt(B^2-4*A*C)
 	push cx
 	call negativo
-	push ax
-	# En este punto el stack es el siguiente:
-	# 2*A 				= ax
-	# -B				= bx
-	# sqrt(B^2-4*A*C)	= cx
-	# -sqrt(B^2-4*A*C)	= dx
+	# 2*A = dx
+	# -B = cx
+	# SQRT(B^2-4*A*C) = bx
+	# -SQRT(B^2-4*A*C) = ax
+	pop bx
+	pop cx
 	pop dx
-	pop cx
-	pop bx
-	pop ax
-	push ax
-	push bx
+	push dx
 	push cx
-	push ax
-	# -B - sqrt(B^2-4*A*C)
 	push bx
 	push dx
-	call sumar
-	push ax
-	call dividir
-	# dx = (-B - sqrt(B^2-4*A*C))/(2*A)
-	pop cx
-	pop bx
-	pop ax
-	# Meto en stack dx = (-B - sqrt(B^2-4*A*C))/(2*A)
-	push dx
-	push ax
-	push bx
 	push cx
-	call sumar
 	push ax
+	call sumar
+	pop dx
+	push ax
+	push dx
 	call dividir
-	# dx =  (-B + sqrt(B^2-4*A*C))/(2*A)
+	# EN AX TENEMOS (-B - sqrt(B^2-4*A*C))/(2*A)
+	mov ax dx
+	pop bx
+	pop cx
+	pop dx
+	push ax
+	push dx
+	push cx
+	push bx
+	call sumar
+	pop dx
+	push ax
+	push dx
+	call dividir
 	pop cx
 	ret
-	
