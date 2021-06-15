@@ -106,7 +106,7 @@ dividir_loop:
 	push dx
 	push ax
 	push bx
-	call multiplicar2
+	call multiplicar
 	cmp 0 ax
 	jnz dividir_check_sign_resto
 	call negativo
@@ -169,12 +169,12 @@ ret_notzeros:
 	cmp bx -1
 	jnz bx_isneg
 	# else: (bx > 0)
-	# return cx + multiplicar2(bx-1, cx)
+	# return cx + multiplicar(bx-1, cx)
 	push cx
 	dec bx
 	push bx
 	push cx
-	call multiplicar2
+	call multiplicar
 	push ax
 	call sumar
 	ret
@@ -195,7 +195,7 @@ bx_isneg:
 	dec bx
 	push bx
 	push cx
-	call multiplicar2
+	call multiplicar
 	push ax
 	call sumar
 	ret
@@ -205,7 +205,7 @@ cx_ispos:
 	dec cx
 	push bx
 	push cx
-	call multiplicar2
+	call multiplicar
 	push ax
 	call sumar
 	ret
@@ -349,7 +349,7 @@ raiz_cuadratica:
 	push ax
 	push ax
 	push 2
-	call multiplicar2
+	call multiplicar
 	mov dx ax
 	pop ax
 	pop bx
@@ -372,7 +372,7 @@ raiz_cuadratica:
 	push ax
 	push bx
 	push bx
-	call multiplicar2
+	call multiplicar
 	mov dx ax
 	pop ax
 	pop bx
@@ -381,10 +381,10 @@ raiz_cuadratica:
 	push dx
 	push ax
 	push cx
-	call multiplicar2
+	call multiplicar
 	push ax
 	push -4
-	call multiplicar2
+	call multiplicar
 	mov dx ax
 	# PUSHEO AL STACK DX QUE ES IGUAL A -4*A*C = -4*ax*cx
 	push dx
