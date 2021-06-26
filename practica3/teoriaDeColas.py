@@ -1,5 +1,8 @@
 import heapq
 import numpy as np
+from estadistica import Estadistica
+
+estadistica = Estadistica()
 
 #comentarios:
 # A continuacion se detalla el esqueleto de la primera parte del trabajo de Teoria de Colas. 
@@ -54,10 +57,11 @@ class Sistema:
 		self.cola.llegaCliente(cliente)
 		self.eventoProximoCliente()
 		
-	def procesar(self):
+	def procesar(self, callbackActualizar, screen):
 		#Primer Cliente
 		self.eventoProximoCliente()
 		while (True):
+			estadistica.cantMediciones += 1
 			proximoEvento = self.proximoEvento()
 			self.tiempoGlobal = proximoEvento.tiempo
 			proximoEvento.procesar()
@@ -66,11 +70,17 @@ class Sistema:
 					proximoCliente = self.cola.proximoCliente()
 					if proximoCliente != None:
 						eventoFinAtencion = servidor.inicioAtencion(self.tiempoGlobal, proximoCliente)
-						self.agregarEvento(eventoFinAtencion) 
+						self.agregarEvento(eventoFinAtencion)
+						estadistica.tiempoTotalClientesEnCola += proximoCliente.tiempoInicioAtencion - proximoCliente.tiempoLlegada
+						estadistica.cantClientesQueEsperaron += 1
 			print('Cant de cliente en cola', self.cola.cantClientes())
-			if self.cola.cantClientes() == 10:
+			
+			estadosServidores = [servidor.estaOcupado for servidor in self.servidores]
+			callbackActualizar(screen, estadosServidores)
+			if self.cola.cantClientes() >= 10:
 				print('FIN, Se llego al tope de clientes')
 				return 
+            
 
 class Servidor:
 	def __init__(self,fTasaAtencionServidor):
@@ -89,6 +99,8 @@ class Servidor:
 
 	def finAtencion(self,fTiempo):
 		self.cliente.setTiempoSalida(fTiempo)
+		estadistica.tiempoTotalClientesEnSistema += self.cliente.tiempoFinDeAtencion - self.cliente.tiempoLlegada
+		estadistica.cantClientesAtendidos += 1
 		self.cliente = None
 		self.estaOcupado = False
 
@@ -143,7 +155,3 @@ class EventoProximoCliente(Evento):
 	def procesar(self):
 		print('Llego cliente')
 		self.sistema.ingresoCliente()
-
-# se le pasa lambda y mu
-cSistema = Sistema(0.5, [0.9])
-cSistema.procesar()
