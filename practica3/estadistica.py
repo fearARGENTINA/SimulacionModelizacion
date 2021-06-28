@@ -27,6 +27,9 @@ class Estadistica:
 
     def W(self):
         #W: tiempo promedio que paso un cliente en el sistema
+        if not self.cantClientesAtendidos:
+            return 0
+            
         return self.tiempoTotalClientesEnSistema/self.cantClientesAtendidos
 
     def Wq(self):

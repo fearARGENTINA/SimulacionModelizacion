@@ -1,6 +1,7 @@
 import heapq
 import numpy as np
 from estadistica import Estadistica
+from time import sleep
 
 estadistica = Estadistica()
 
@@ -73,13 +74,14 @@ class Sistema:
 						self.agregarEvento(eventoFinAtencion)
 						estadistica.tiempoTotalClientesEnCola += proximoCliente.tiempoInicioAtencion - proximoCliente.tiempoLlegada
 						estadistica.cantClientesQueEsperaron += 1
+                        
 			print('Cant de cliente en cola', self.cola.cantClientes())
 			
-			estadosServidores = [servidor.estaOcupado for servidor in self.servidores]
-			callbackActualizar(screen, estadosServidores)
-			if self.cola.cantClientes() >= 10:
-				print('FIN, Se llego al tope de clientes')
-				return 
+			finishByKey = callbackActualizar(screen, self)
+            
+			if finishByKey:
+				print("Se interrumpio el programa con tecla de salida")
+				return
             
 
 class Servidor:
