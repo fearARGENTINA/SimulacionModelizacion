@@ -24,6 +24,8 @@ class Estadistica:
         #acumulador de clientes en la cola
         self.cantClientesEnCola = 0
         self.cantMediciones = 0
+        self.cantTotalClientesSistema = 0
+        self.cantTotalClientesCola = 0
 
     def W(self):
         #W: tiempo promedio que paso un cliente en el sistema
@@ -34,12 +36,21 @@ class Estadistica:
 
     def Wq(self):
         #Wq: tiempo promedio que paso un cliente en la cola
+        if not self.cantClientesQueEsperaron:
+            return 0
+            
         return self.tiempoTotalClientesEnCola/self.cantClientesQueEsperaron
 
-    def L(self, sistema):
+    def L(self):
         #L: promedio de clientes en el sistema
-        return sistema.Lambda * self.W()
+        if not self.cantMediciones:
+            return 0
+            
+        return self.cantTotalClientesSistema/self.cantMediciones
 
-    def Lq(self,sistema):
+    def Lq(self):
         #Lq: promedio de clientes en la cola
-        return sistema.Lambda * self.Wq()
+        if not self.cantMediciones:
+            return 0
+        
+        return self.cantTotalClientesCola/self.cantMediciones

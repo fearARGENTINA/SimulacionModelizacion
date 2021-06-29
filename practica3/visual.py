@@ -43,8 +43,8 @@ def actualizarEstadoServidores(screen, sistema):
 	screen.addstr(22,0,'Cantidad de clientes en espera (en la cola): {}     '.format(sistema.cola.cantClientes()))
 	screen.addstr(23,0,'Cantidad de mediciones: {}'.format(estadistica.cantMediciones))
 	screen.addstr(24,0,'Tiempo global: {}'.format(sistema.tiempoGlobal))
-	screen.addstr(26,0,'L: {}'.format(estadistica.L(sistema)))
-	screen.addstr(27,0,'Lq: {}'.format(estadistica.Lq(sistema)))
+	screen.addstr(26,0,'L: {}'.format(estadistica.L()))
+	screen.addstr(27,0,'Lq: {}'.format(estadistica.Lq()))
 	screen.addstr(26,50,'W: {}'.format(estadistica.W()))
 	screen.addstr(27,50,'Wq: {}'.format(estadistica.Wq()))
     
@@ -61,15 +61,14 @@ def iniciar(screen):
     
     # se le pasa lambda y mu
 	CANT_SERVIDORES = 5
-	TASAS_ATENCION = [0.9]*CANT_SERVIDORES
+	TASAS_ATENCION = [4]*CANT_SERVIDORES
     
-	cSistema = Sistema(4.4, TASAS_ATENCION)
+	cSistema = Sistema(2, TASAS_ATENCION)
     
 	imprimirTitulo(screen)	
     
 	imprimirDatos(screen)
 	
-	terminar = False
 	screen.nodelay(True)
 	screen.refresh()
 	cSistema.procesar(actualizarEstadoServidores, screen)

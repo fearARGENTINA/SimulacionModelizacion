@@ -66,14 +66,19 @@ class Sistema:
 			proximoEvento = self.proximoEvento()
 			self.tiempoGlobal = proximoEvento.tiempo
 			proximoEvento.procesar()
+
 			for servidor in self.servidores:
+				if servidor.estaOcupado:
+					estadistica.cantTotalClientesSistema += 1
 				if not servidor.estaOcupado and self.cola.cantClientes():
 					proximoCliente = self.cola.proximoCliente()
 					if proximoCliente != None:
 						eventoFinAtencion = servidor.inicioAtencion(self.tiempoGlobal, proximoCliente)
 						self.agregarEvento(eventoFinAtencion)
-						estadistica.tiempoTotalClientesEnCola += proximoCliente.tiempoInicioAtencion - proximoCliente.tiempoLlegada
-						estadistica.cantClientesQueEsperaron += 1
+			
+			cantClientesCola = self.cola.cantClientes()
+			estadistica.cantTotalClientesCola += cantClientesCola
+			estadistica.cantTotalClientesSistema += cantClientesCola			
                         
 			print('Cant de cliente en cola', self.cola.cantClientes())
 			
@@ -97,6 +102,8 @@ class Servidor:
 		self.cliente = cCliente
 		cCliente.setTiempoInicioAtencion(fTiempoGlobal) 
 		eventoFinAtencion = EventoFinAtencion(fTiempoGlobal + distribucionExponencial(self.mu), self) 
+		estadistica.tiempoTotalClientesEnCola += cCliente.tiempoInicioAtencion - cCliente.tiempoLlegada
+		estadistica.cantClientesQueEsperaron += 1
 		return eventoFinAtencion
 
 	def finAtencion(self,fTiempo):
